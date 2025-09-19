@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "Core.h"
+#include "Vector.h"
 
 #define PTEX_TEXTURE_CHANNELS 4
 
@@ -22,7 +23,7 @@ namespace PTex
         float *data() { return m_Data.data(); }
 
         Texture &setData(const float *data, int size);
-        Texture &gradient(float angle = 0.0f);
+        Texture &gradient(vec4 colA, vec4 colB, float angle = 0.0f);
 
     private:
         int m_Width, m_Height;

@@ -33,7 +33,7 @@ endif()
 
 target_include_directories(ptexLib
     PUBLIC
-        ${CMAKE_SOURCE_DIR}/lib/include
+    ${CMAKE_SOURCE_DIR}/lib/include
 )
 
 # --------------------------
@@ -48,7 +48,7 @@ add_executable(ptexDemo ${DEMO_SOURCES})
 
 target_include_directories(ptexDemo
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/demo/src
+    ${CMAKE_SOURCE_DIR}/demo/src
 )
 
 target_link_libraries(ptexDemo PRIVATE ptexLib)
@@ -56,7 +56,7 @@ target_link_libraries(ptexDemo PRIVATE ptexLib)
 # --------------------------
 # Warnings
 # --------------------------
-if (MSVC)
+if(MSVC)
     target_compile_options(ptexLib PRIVATE /W4 /permissive-)
     target_compile_options(ptexDemo PRIVATE /W4 /permissive-)
 else()

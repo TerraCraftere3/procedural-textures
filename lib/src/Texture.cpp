@@ -29,7 +29,7 @@ namespace PTex
         return *this;
     }
 
-    Texture &Texture::gradient(float angle)
+    Texture &Texture::gradient(vec4 colA, vec4 colB, float angle)
     {
         float rad = angle * (3.14159265f / 180.0f);
         float dx = std::cos(rad);
@@ -44,12 +44,15 @@ namespace PTex
                 t = std::clamp(t, 0.0f, 1.0f);
 
                 int idx = (y * m_Width + x) * PTEX_TEXTURE_CHANNELS;
-                for (int c = 0; c < PTEX_TEXTURE_CHANNELS; ++c)
-                    m_Data[idx + c] = t;
+
+                // blend each channel
+                m_Data[idx + 0] = colA.x * (1.0f - t) + colB.x * t; // R / X
+                m_Data[idx + 1] = colA.y * (1.0f - t) + colB.y * t; // G / Y
+                m_Data[idx + 2] = colA.z * (1.0f - t) + colB.z * t; // B / Z
+                m_Data[idx + 3] = colA.w * (1.0f - t) + colB.w * t; // A / W
             }
         }
 
         return *this;
     }
-
 }
