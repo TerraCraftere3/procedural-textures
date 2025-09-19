@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.asm": "asm-intel-x86-generic",
+        "stdexcept": "cpp",
+        "algorithm": "cpp",
+        "vector": "cpp",
+        "xstring": "cpp",
+        "xutility": "cpp"
+    }
+}
