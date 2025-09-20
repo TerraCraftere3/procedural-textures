@@ -21,8 +21,8 @@ namespace PTex
     public:
         Texture(int width = 256, int height = 256);
         ~Texture();
-        // Texture(const Texture &) = delete;
-        // Texture &operator=(const Texture &) = delete;
+        Texture(const Texture &);
+        Texture &operator=(const Texture &other);
 
         int width() const { return m_Width; }
         int height() const { return m_Height; }
@@ -36,6 +36,7 @@ namespace PTex
         int end();
 
         Texture &setData(const float *data, int size);
+        Texture &fill(vec4 color);
         Texture &zero();
         Texture &gradient(vec4 colA, vec4 colB, float angle = 0.0f);
         Texture &noise(float scale = 5.0f, float detail = 2.0f, float roughness = 0.5f, float lacunarity = 2.0f, float distortion = 0.0f);

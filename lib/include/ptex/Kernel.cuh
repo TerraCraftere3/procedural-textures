@@ -60,6 +60,21 @@ namespace PTex
         return vec2(r1, r2);
     }
 
+    __global__ void fillKernel(float *data, int width, int height, vec4 color)
+    {
+        int x = blockIdx.x * blockDim.x + threadIdx.x;
+        int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+        if (x >= width || y >= height)
+            return;
+
+        int idx = (y * width + x) * PTEX_TEXTURE_CHANNELS;
+        data[idx + 0] = color.x;
+        data[idx + 1] = color.y;
+        data[idx + 2] = color.z;
+        data[idx + 3] = color.w;
+    }
+
     __global__ void gradientKernel(float *data, int width, int height, vec4 colA, vec4 colB, float angle)
     {
         int x = blockIdx.x * blockDim.x + threadIdx.x;

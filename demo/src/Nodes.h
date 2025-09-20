@@ -1,24 +1,17 @@
-#pragma once
-
-#include <ptex/PTex.h>
-#include <ptex/Vector.cuh>
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include "imnodes.h"
-
 struct TextureNode
 {
     int id;
     std::string name;
     std::vector<std::shared_ptr<TextureNode>> inputs;
+    std::vector<std::string> inputNames;
     enum class Type
     {
         Gradient,
         Voronoi,
         Noise,
         Mix,
-        Blur
+        Blur,
+        Color
     } type;
     struct Params
     {
@@ -31,15 +24,32 @@ struct TextureNode
 
     PTex::Texture texture;
 
-    TextureNode(int _id, std::string _name, Type _type) : id(_id), name(_name), type(_type) {};
+    TextureNode(int _id, std::string _name, Type _type)
+        : id(_id), name(_name), type(_type)
+    {
+        // Default input pins if not explicitly passed
+        if (type == Type::Mix)
+            inputNames = {"Color A", "Color B", "Value"};
+        if (type == Type::Blur)
+            inputNames = {"Color"};
+    }
 
     int getInputPinID(int index) { return id * 100 + index; }
     int getOutputPinID(int index) { return id * 1000 + index; }
 
-    bool renderInputs()
+    bool renderAttributes()
     {
         bool changed = false;
 
+        // Input Pins
+        for (int i = 0; i < inputNames.size(); i++)
+        {
+            ImNodes::BeginInputAttribute(getInputPinID(i));
+            ImGui::Text("%s", inputNames[i].c_str());
+            ImNodes::EndInputAttribute();
+        }
+
+        // Input Arguments
         switch (type)
         {
         case Type::Gradient:
@@ -63,6 +73,16 @@ struct TextureNode
             ImGui::PopItemWidth();
             break;
         }
+        case Type::Color:
+        {
+            ImVec4 col(params.colorA.x, params.colorA.y, params.colorA.z, params.colorA.w);
+            ImGui::PushItemWidth(140);
+            changed |= ImGui::ColorEdit4(("Color##" + std::to_string(id)).c_str(), (float *)&col);
+            ImGui::PopItemWidth();
+            if (changed)
+                params.colorA = PTex::vec4(col.x, col.y, col.z, col.w);
+            break;
+        }
 
         case Type::Voronoi:
         case Type::Noise:
@@ -72,7 +92,6 @@ struct TextureNode
             break;
 
         case Type::Mix:
-            ImGui::Text("Mix node: requires 2 inputs");
             break;
 
         case Type::Blur:
@@ -82,13 +101,18 @@ struct TextureNode
             break;
         }
 
+        // Output Pin
+        ImNodes::BeginOutputAttribute(getOutputPinID(0));
+        ImGui::Text("Output");
+        ImNodes::EndOutputAttribute();
+
         return changed;
     }
 
     PTex::Texture &evaluate()
     {
         std::vector<PTex::Texture *> inputTextures;
-        for (auto in : inputs)
+        for (auto &in : inputs)
         {
             inputTextures.push_back(&in->evaluate());
         }
@@ -100,18 +124,41 @@ struct TextureNode
         case Type::Gradient:
             texture.gradient(params.colorA, params.colorB, params.angle);
             break;
+
         case Type::Voronoi:
             texture.voronoi(params.scale);
             break;
+
         case Type::Noise:
             texture.noise(params.scale);
             break;
+
         case Type::Mix:
-            if (inputTextures.size() >= 2)
-                texture.mix(*inputTextures[0], *inputTextures[1]);
+            if (inputTextures.size() >= 3)
+            {
+                // Mix into the first input’s texture
+                inputTextures[0]->mix(*inputTextures[2], *inputTextures[1]);
+                texture = *inputTextures[0];
+            }
+            else if (inputTextures.size() == 1)
+            {
+                texture = *inputTextures[0];
+            }
             break;
+
         case Type::Blur:
-            texture.blur(params.radius);
+            if (!inputTextures.empty())
+            {
+                inputTextures[0]->blur(params.radius);
+                texture = *inputTextures[0];
+            }
+            else
+            {
+                texture.blur(params.radius);
+            }
+            break;
+        case Type::Color:
+            texture.fill(params.colorA);
             break;
         }
 

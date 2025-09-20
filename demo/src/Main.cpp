@@ -25,20 +25,7 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
         ImGui::Text("%s", node->name.c_str());
         ImNodes::EndNodeTitleBar();
 
-        // Input pins
-        for (int i = 0; i < node->inputs.size(); i++)
-        {
-            ImNodes::BeginInputAttribute(node->getInputPinID(i));
-            ImGui::Text("Input %d", i);
-            ImNodes::EndInputAttribute();
-        }
-
-        changed |= node->renderInputs();
-
-        // Output pin
-        ImNodes::BeginOutputAttribute(node->getOutputPinID(0));
-        ImGui::Text("Output");
-        ImNodes::EndOutputAttribute();
+        changed |= node->renderAttributes();
 
         // Display texture
         if (node->texture.width() > 0)
@@ -125,13 +112,17 @@ int main()
 
     nodes.push_back(std::make_shared<TextureNode>(1, "Voronoi Node", TextureNode::Type::Voronoi));
     nodes.push_back(std::make_shared<TextureNode>(0, "Gradient Node", TextureNode::Type::Gradient));
-    nodes.push_back(std::make_shared<TextureNode>(2, "Mix Node", TextureNode::Type::Mix));
+    nodes.push_back(std::make_shared<TextureNode>(2, "Color Node", TextureNode::Type::Color));
+    nodes.push_back(std::make_shared<TextureNode>(3, "Mix Node", TextureNode::Type::Mix));
 
-    nodes[1]->params.colorA = vec4(1.0f, 0.3f, 0.2f, 1.0f);
-    nodes[1]->params.colorB = vec4(2.0f, 0.3f, 1.0f, 1.0f);
+    nodes[1]->params.colorA = vec4(1.0f, 0.3f, 0.2f, 1.0f); // Gradient Node
+    nodes[1]->params.colorB = vec4(2.0f, 0.3f, 1.0f, 1.0f); //
 
-    nodes[2]->inputs.push_back(nodes[0]);
-    nodes[2]->inputs.push_back(nodes[1]);
+    nodes[2]->params.colorA = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Color Node
+
+    nodes[3]->inputs.push_back(nodes[2]);
+    nodes[3]->inputs.push_back(nodes[1]);
+    nodes[3]->inputs.push_back(nodes[0]);
 
     // -------------------
     // Main loop

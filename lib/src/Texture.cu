@@ -56,6 +56,164 @@ namespace PTex
 #endif
     }
 
+    Texture::Texture(const Texture &other)
+        : m_Width(other.m_Width), m_Height(other.m_Height)
+    {
+        size_t size = m_Width * m_Height * PTEX_TEXTURE_CHANNELS;
+        size_t bytes = size * sizeof(float);
+
+        // Allocate host memory
+        CUDA_CHECK(cudaMallocHost(&m_Data, bytes));
+
+        // Allocate device memory
+        CUDA_CHECK(cudaMalloc(&d_data, bytes));
+
+        // Copy data from other texture
+        if (other.m_Data)
+        {
+            memcpy(m_Data, other.m_Data, bytes);
+        }
+
+        if (other.d_data)
+        {
+            CUDA_CHECK(cudaMemcpy(d_data, other.d_data, bytes, cudaMemcpyDeviceToDevice));
+        }
+
+#ifdef PTEX_USE_OPENGL
+        // Initialize OpenGL related members
+        m_GLTexture = 0;
+        m_CUDAResource = nullptr;
+
+        // If the source texture has an OpenGL texture, create a new one and copy data
+        if (other.m_GLTexture != 0)
+        {
+            glGenTextures(1, &m_GLTexture);
+            glBindTexture(GL_TEXTURE_2D, m_GLTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            // Allocate GPU storage
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_Width, m_Height, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+            // Register with CUDA
+            CUDA_CHECK(cudaGraphicsGLRegisterImage(&m_CUDAResource, m_GLTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard));
+
+            // Copy texture data via CUDA
+            CUDA_CHECK(cudaGraphicsMapResources(1, &m_CUDAResource, 0));
+            cudaArray_t array;
+            CUDA_CHECK(cudaGraphicsSubResourceGetMappedArray(&array, m_CUDAResource, 0, 0));
+
+            CUDA_CHECK(cudaMemcpy2DToArray(
+                array,
+                0, 0,
+                d_data,
+                m_Width * PTEX_TEXTURE_CHANNELS * sizeof(float),
+                m_Width * PTEX_TEXTURE_CHANNELS * sizeof(float),
+                m_Height,
+                cudaMemcpyDeviceToDevice));
+
+            CUDA_CHECK(cudaGraphicsUnmapResources(1, &m_CUDAResource, 0));
+        }
+#endif
+    }
+
+    Texture &Texture::operator=(const Texture &other)
+    {
+        if (this == &other)
+        {
+            return *this; // Self-assignment guard
+        }
+
+        // Clean up existing resources
+        if (d_data)
+        {
+            cudaFree(d_data);
+            d_data = nullptr;
+        }
+        if (m_Data)
+        {
+            cudaFreeHost(m_Data);
+            m_Data = nullptr;
+        }
+#ifdef PTEX_USE_OPENGL
+        if (m_CUDAResource)
+        {
+            cudaGraphicsUnregisterResource(m_CUDAResource);
+            m_CUDAResource = nullptr;
+        }
+        if (m_GLTexture)
+        {
+            glDeleteTextures(1, &m_GLTexture);
+            m_GLTexture = 0;
+        }
+#endif
+
+        // Copy dimensions
+        m_Width = other.m_Width;
+        m_Height = other.m_Height;
+
+        // Allocate new resources
+        size_t size = m_Width * m_Height * PTEX_TEXTURE_CHANNELS;
+        size_t bytes = size * sizeof(float);
+
+        CUDA_CHECK(cudaMallocHost(&m_Data, bytes));
+        CUDA_CHECK(cudaMalloc(&d_data, bytes));
+
+        // Copy data
+        if (other.m_Data)
+        {
+            memcpy(m_Data, other.m_Data, bytes);
+        }
+
+        if (other.d_data)
+        {
+            CUDA_CHECK(cudaMemcpy(d_data, other.d_data, bytes, cudaMemcpyDeviceToDevice));
+        }
+
+#ifdef PTEX_USE_OPENGL
+        // Initialize OpenGL related members
+        m_GLTexture = 0;
+        m_CUDAResource = nullptr;
+
+        // If the source texture has an OpenGL texture, create a new one and copy data
+        if (other.m_GLTexture != 0)
+        {
+            glGenTextures(1, &m_GLTexture);
+            glBindTexture(GL_TEXTURE_2D, m_GLTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            // Allocate GPU storage
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_Width, m_Height, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+            // Register with CUDA
+            CUDA_CHECK(cudaGraphicsGLRegisterImage(&m_CUDAResource, m_GLTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard));
+
+            // Copy texture data via CUDA
+            CUDA_CHECK(cudaGraphicsMapResources(1, &m_CUDAResource, 0));
+            cudaArray_t array;
+            CUDA_CHECK(cudaGraphicsSubResourceGetMappedArray(&array, m_CUDAResource, 0, 0));
+
+            CUDA_CHECK(cudaMemcpy2DToArray(
+                array,
+                0, 0,
+                d_data,
+                m_Width * PTEX_TEXTURE_CHANNELS * sizeof(float),
+                m_Width * PTEX_TEXTURE_CHANNELS * sizeof(float),
+                m_Height,
+                cudaMemcpyDeviceToDevice));
+
+            CUDA_CHECK(cudaGraphicsUnmapResources(1, &m_CUDAResource, 0));
+        }
+#endif
+
+        return *this;
+    }
+
     Texture &Texture::setData(const float *data, int size)
     {
         int expectedSize = m_Width * m_Height * PTEX_TEXTURE_CHANNELS;
@@ -67,6 +225,17 @@ namespace PTex
         return *this;
     }
 
+    Texture &Texture::fill(vec4 color)
+    {
+        dim3 blockSize(16, 16);
+        dim3 gridSize((m_Width + blockSize.x - 1) / blockSize.x,
+                      (m_Height + blockSize.y - 1) / blockSize.y);
+
+        fillKernel<<<gridSize, blockSize>>>(d_data, m_Width, m_Height, color);
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+        return *this;
+    }
     Texture &Texture::zero()
     {
         int size = m_Width * m_Height * PTEX_TEXTURE_CHANNELS;
