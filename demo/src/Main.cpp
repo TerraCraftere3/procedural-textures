@@ -1,42 +1,67 @@
 #include <ptex/PTex.h>
-
-/*#include <fstream>
-#include <algorithm>
-#include <chrono>
-#include <iostream>
-
-int main()
-{
-    using namespace PTex;
-
-    printf("Starting Texture Creation\n");
-    auto start = std::chrono::high_resolution_clock::now();
-
-    int size = 512;
-#define SIZED_TEXTURE() Texture(size, size)
-    Texture tex(size, size);
-    tex.gradient(vec4(1.0f, 0.3f, 0.2f, 1.0f), vec4(0.2f, 0.3f, 1.0f, 1.0f), 45.0f)
-        .mix(SIZED_TEXTURE().voronoi(), SIZED_TEXTURE().noise())
-        .blur(25.0f)
-        .multi(SIZED_TEXTURE().voronoi())
-        .copy();
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = end - start;
-
-    printf("Texture creation took %.3f ms\n", elapsed.count());
-    writePPM("output.ppm", tex);
-    printf("Wrote file \"output.ppm\"...\n");
-    return 0;
-}*/
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "imnodes.h"
 #include <iostream>
 #include <chrono>
+#include <vector>
+
+#include "Nodes.h"
+
+bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
+{
+    ImNodes::BeginNodeEditor();
+
+    bool changed = false;
+
+    for (auto &node : nodes)
+    {
+        ImNodes::BeginNode(node->id);
+
+        ImNodes::BeginNodeTitleBar();
+        ImGui::Text("%s", node->name.c_str());
+        ImNodes::EndNodeTitleBar();
+
+        // Input pins
+        for (int i = 0; i < node->inputs.size(); i++)
+        {
+            ImNodes::BeginInputAttribute(node->getInputPinID(i));
+            ImGui::Text("Input %d", i);
+            ImNodes::EndInputAttribute();
+        }
+
+        changed |= node->renderInputs();
+
+        // Output pin
+        ImNodes::BeginOutputAttribute(node->getOutputPinID(0));
+        ImGui::Text("Output");
+        ImNodes::EndOutputAttribute();
+
+        // Display texture
+        if (node->texture.width() > 0)
+            ImGui::Image((void *)(intptr_t)node->texture.getTextureID(), ImVec2(128, 128));
+
+        ImNodes::EndNode();
+    }
+
+    // Draw links
+    for (auto &node : nodes)
+    {
+        for (int i = 0; i < node->inputs.size(); i++)
+        {
+            auto inputNode = node->inputs[i];
+            ImNodes::Link(node->id * 100 + i,
+                          inputNode->getOutputPinID(0),
+                          node->getInputPinID(i));
+        }
+    }
+
+    ImNodes::EndNodeEditor();
+    return changed;
+}
 
 int main()
 {
@@ -65,6 +90,7 @@ int main()
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // VSync
+    glfwMaximizeWindow(window);
 
     // -------------------
     // Load OpenGL using GLAD
@@ -80,12 +106,14 @@ int main()
     // -------------------
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImNodes::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
 
     // Enable docking
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui::StyleColorsDark();
+    ImNodes::StyleColorsDark();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
@@ -93,23 +121,17 @@ int main()
     // -------------------
     // Texture Creation
     // -------------------
-    printf("Starting Texture Creation\n");
-    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<std::shared_ptr<TextureNode>> nodes;
 
-    int size = 512;
-#define SIZED_TEXTURE() Texture(size, size)
-    Texture tex(size, size);
-    tex.gradient(vec4(1.0f, 0.3f, 0.2f, 1.0f), vec4(0.2f, 0.3f, 1.0f, 1.0f), 45.0f)
-        .mix(SIZED_TEXTURE().voronoi(), SIZED_TEXTURE().noise())
-        .blur(25.0f)
-        .multi(SIZED_TEXTURE().voronoi())
-        .end();
+    nodes.push_back(std::make_shared<TextureNode>(1, "Voronoi Node", TextureNode::Type::Voronoi));
+    nodes.push_back(std::make_shared<TextureNode>(0, "Gradient Node", TextureNode::Type::Gradient));
+    nodes.push_back(std::make_shared<TextureNode>(2, "Mix Node", TextureNode::Type::Mix));
 
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = end - start;
+    nodes[1]->params.colorA = vec4(1.0f, 0.3f, 0.2f, 1.0f);
+    nodes[1]->params.colorB = vec4(2.0f, 0.3f, 1.0f, 1.0f);
 
-    printf("Texture creation took %.3f ms\n", elapsed.count());
-    fflush(stdout);
+    nodes[2]->inputs.push_back(nodes[0]);
+    nodes[2]->inputs.push_back(nodes[1]);
 
     // -------------------
     // Main loop
@@ -142,29 +164,46 @@ int main()
 
         ImGui::PopStyleVar();
 
-        ImGui::ShowDemoWindow();
+        ImGui::Begin("Texture Editor");
+        {
+            bool bakeTexture = false;
+            bakeTexture |= ImGui::Button("Bake Texture");
+            bakeTexture |= showTextureNodeEditor(nodes);
+            if (bakeTexture)
+            {
+                printf("Starting Texture Creation\n");
+                auto start = std::chrono::high_resolution_clock::now();
+
+                nodes.back()->evaluate();
+
+                auto end = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double, std::milli> elapsed = end - start;
+
+                printf("Texture creation took %.3f ms\n", elapsed.count());
+                fflush(stdout);
+                bakeTexture = false;
+            }
+        }
+        ImGui::End();
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
         ImGui::Begin("Viewport");
         {
-            int texWidth = tex.width();
-            int texHeight = tex.height();
+            PTex::Texture &finalTex = nodes.back()->texture;
+            int texWidth = finalTex.width();
+            int texHeight = finalTex.height();
 
             ImVec2 availSize = ImGui::GetContentRegionAvail();
             float aspect = (float)texWidth / (float)texHeight;
             ImVec2 imageSize = availSize;
 
             if (imageSize.x / aspect <= imageSize.y)
-            {
                 imageSize.y = imageSize.x / aspect;
-            }
             else
-            {
                 imageSize.x = imageSize.y * aspect;
-            }
 
-            ImGui::Image(tex.getTextureID(), imageSize);
+            ImGui::Image(finalTex.getTextureID(), imageSize);
         }
         ImGui::End();
 
@@ -185,6 +224,7 @@ int main()
     // -------------------
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+    ImNodes::DestroyContext();
     ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();

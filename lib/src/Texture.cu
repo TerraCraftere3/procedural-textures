@@ -67,6 +67,15 @@ namespace PTex
         return *this;
     }
 
+    Texture &Texture::zero()
+    {
+        int size = m_Width * m_Height * PTEX_TEXTURE_CHANNELS;
+        size_t bytes = size * sizeof(float);
+
+        CUDA_CHECK(cudaMemset(d_data, 0, bytes));
+        return *this;
+    }
+
     Texture &Texture::gradient(vec4 colA, vec4 colB, float angle)
     {
         dim3 blockSize(16, 16);

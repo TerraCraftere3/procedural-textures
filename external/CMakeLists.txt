@@ -41,7 +41,14 @@ find_package(OpenGL REQUIRED)
 target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 
 # --------------------------
+# IMNODES
+# --------------------------
+
+set(IMNODES_IMGUI_TARGET_NAME imgui)
+add_subdirectory(imnodes)
+
+# --------------------------
 # Convenience target
 # --------------------------
 add_library(externals INTERFACE)
-target_link_libraries(externals INTERFACE glad glfw imgui)
+target_link_libraries(externals INTERFACE glad glfw imgui imnodes)
