@@ -32,6 +32,10 @@ namespace PTex
         Texture &noise(float scale = 5.0f, float detail = 2.0f, float roughness = 0.5f, float lacunarity = 2.0f, float distortion = 0.0f);
         Texture &voronoi(float scale = 5.0f, float detail = 1.0f, float roughness = 0.5f, float lacunarity = 2.0f, float smoothness = 1.0f);
         Texture &mix(const Texture &value, const Texture &source);
+        Texture &add(const Texture &other);
+        Texture &sub(const Texture &other);
+        Texture &multi(const Texture &other);
+        Texture &divide(const Texture &other);
         Texture &grayscale();
         Texture &blur(float radius = 1.0f);
 

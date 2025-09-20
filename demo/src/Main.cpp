@@ -32,20 +32,22 @@ int main()
     using namespace PTex;
 
     printf("Starting Texture Creation\n");
-    fflush(stdout);
     auto start = std::chrono::high_resolution_clock::now();
 
-    Texture tex(512, 512);
+    int size = 512;
+#define SIZED_TEXTURE() Texture(size, size)
+    Texture tex(size, size);
     tex.gradient(vec4(1.0f, 0.3f, 0.2f, 1.0f), vec4(0.2f, 0.3f, 1.0f, 1.0f), 45.0f)
-        .mix(Texture(256, 256).voronoi(), Texture(256, 256).noise())
+        .mix(SIZED_TEXTURE().voronoi(), SIZED_TEXTURE().noise())
         .blur(25.0f)
+        .multi(SIZED_TEXTURE().voronoi())
         .end();
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = end - start;
 
+    printf("Texture creation took %.3f ms\n", elapsed.count());
     writePPM("output.ppm", tex);
     printf("Wrote file \"output.ppm\"...\n");
-    printf("Texture creation took %.3f ms\n", elapsed.count());
     return 0;
 }
