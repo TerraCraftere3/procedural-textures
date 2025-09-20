@@ -45,13 +45,15 @@ namespace PTex
     Texture::~Texture()
     {
         if (d_data)
-        {
             cudaFree(d_data);
-        }
         if (m_Data)
-        {
             cudaFreeHost(m_Data);
-        }
+#ifdef PTEX_USE_OPENGL
+        if (m_CUDAResource)
+            cudaGraphicsUnregisterResource(m_CUDAResource);
+        if (m_GLTexture)
+            glDeleteTextures(1, &m_GLTexture);
+#endif
     }
 
     Texture &Texture::setData(const float *data, int size)
@@ -230,7 +232,7 @@ namespace PTex
         return *this;
     }
 
-    float *Texture::end()
+    float *Texture::copy()
     {
         if (!d_data)
         {
@@ -246,8 +248,56 @@ namespace PTex
         return m_Data;
     }
 
+    int Texture::end()
+    {
+#ifdef PTEX_USE_OPENGL
+        if (m_GLTexture == 0)
+        {
+            glGenTextures(1, &m_GLTexture);
+            glBindTexture(GL_TEXTURE_2D, m_GLTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            // Allocate GPU storage
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_Width, m_Height, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+            // Register with CUDA
+            CUDA_CHECK(cudaGraphicsGLRegisterImage(&m_CUDAResource, m_GLTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard));
+        }
+
+        // Map CUDA resource
+        CUDA_CHECK(cudaGraphicsMapResources(1, &m_CUDAResource, 0));
+        cudaArray_t array;
+        CUDA_CHECK(cudaGraphicsSubResourceGetMappedArray(&array, m_CUDAResource, 0, 0));
+
+        // Copy your device data into the GL texture
+        CUDA_CHECK(cudaMemcpy2DToArray(
+            array,
+            0, 0,
+            d_data,
+            m_Width * PTEX_TEXTURE_CHANNELS * sizeof(float),
+            m_Width * PTEX_TEXTURE_CHANNELS * sizeof(float),
+            m_Height,
+            cudaMemcpyDeviceToDevice));
+
+        CUDA_CHECK(cudaGraphicsUnmapResources(1, &m_CUDAResource, 0));
+
+        return m_GLTexture;
+#else
+#pragma message("No OpenGL Support for Texture.cu!!!");
+        return 0;
+#endif
+    }
+
     const float *Texture::getData() const
     {
         return m_Data;
     }
+
+    int Texture::getTextureID() const
+    {
+        return m_GLTexture;
+    }
+
 }

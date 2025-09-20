@@ -7,6 +7,12 @@
 
 #define PTEX_TEXTURE_CHANNELS 4
 
+#ifdef PTEX_USE_OPENGL
+#include "glad/glad.h"
+#include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
+#endif
+
 namespace PTex
 {
 
@@ -23,9 +29,11 @@ namespace PTex
 
         // CPU data access (only valid after calling end())
         const float *getData() const;
+        int getTextureID() const;
 
         // GPU to CPU data transfer
-        float *end();
+        float *copy();
+        int end();
 
         Texture &setData(const float *data, int size);
         Texture &gradient(vec4 colA, vec4 colB, float angle = 0.0f);
@@ -43,6 +51,9 @@ namespace PTex
         int m_Width, m_Height;
         float *m_Data; // CPU data
         float *d_data; // GPU data pointer
+#ifdef PTEX_USE_OPENGL
+        GLuint m_GLTexture = 0;                         // existing GL texture
+        cudaGraphicsResource *m_CUDAResource = nullptr; // CUDA-GL interop handle
+#endif
     };
-
 }

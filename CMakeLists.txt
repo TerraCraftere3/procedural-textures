@@ -20,6 +20,16 @@ set(CMAKE_CUDA_SEPARABLE_COMPILATION OFF)
 set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
 
 # --------------------------
+# Options
+# --------------------------
+option(PTEX_USE_OPENGL "Enable OpenGL support in ptexLib" ON)
+
+# --------------------------
+# Externals
+# --------------------------
+add_subdirectory(external)
+
+# --------------------------
 # Library
 # --------------------------
 file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS
@@ -34,9 +44,18 @@ target_include_directories(ptexLib
     ${CMAKE_SOURCE_DIR}/lib/include
 )
 
+if (PTEX_USE_OPENGL)
+    message(STATUS "Building ptexLib with OpenGL support")
+
+    target_link_libraries(ptexLib PUBLIC glad)
+    target_compile_definitions(ptexLib PUBLIC PTEX_USE_OPENGL=1)
+endif()
+
+
 # --------------------------
 # Demo Executable
 # --------------------------
+
 file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/demo/src/*.cpp"
     "${CMAKE_SOURCE_DIR}/demo/src/*.cu"
@@ -49,4 +68,4 @@ target_include_directories(ptexDemo
     ${CMAKE_SOURCE_DIR}/demo/src
 )
 
-target_link_libraries(ptexDemo PRIVATE ptexLib)
+target_link_libraries(ptexDemo PRIVATE ptexLib externals)
