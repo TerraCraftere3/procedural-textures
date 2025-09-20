@@ -19,6 +19,12 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
 
     for (auto &node : nodes)
     {
+        ImNodes::PushColorStyle(
+            ImNodesCol_TitleBar, node->color);
+        ImNodes::PushColorStyle(
+            ImNodesCol_TitleBarHovered, node->highlightColor);
+        ImNodes::PushColorStyle(
+            ImNodesCol_TitleBarSelected, node->highlightColor);
         ImNodes::BeginNode(node->id);
 
         ImNodes::BeginNodeTitleBar();
@@ -32,6 +38,9 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
             ImGui::Image((void *)(intptr_t)node->texture.getTextureID(), ImVec2(128, 128));
 
         ImNodes::EndNode();
+        ImNodes::PopColorStyle();
+        ImNodes::PopColorStyle();
+        ImNodes::PopColorStyle();
     }
 
     for (auto &node : nodes)

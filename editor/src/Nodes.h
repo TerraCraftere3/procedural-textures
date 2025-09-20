@@ -4,6 +4,8 @@ struct TextureNode
     std::string name;
     std::vector<std::shared_ptr<TextureNode>> inputs;
     std::vector<std::string> inputNames;
+    unsigned int color;
+    unsigned int highlightColor;
     enum class Type
     {
         Gradient,
@@ -48,8 +50,45 @@ struct TextureNode
         }
     }
 
+    unsigned int getColorFromType(Type type)
+    {
+        switch (type)
+        {
+        case Type::Blur:
+            return IM_COL32(180, 100, 255, 255); // purple
+        case Type::Gradient:
+            return IM_COL32(255, 140, 0, 255); // orange
+        case Type::Voronoi:
+            return IM_COL32(0, 200, 120, 255); // teal/green
+        case Type::Noise:
+            return IM_COL32(200, 200, 200, 255); // light gray
+        case Type::Mix:
+            return IM_COL32(100, 150, 255, 255); // blue
+        case Type::Color:
+            return IM_COL32(255, 80, 80, 255); // red
+        case Type::Output:
+            return IM_COL32(255, 215, 0, 255); // gold/yellow
+        default:
+            return IM_COL32(80, 80, 80, 255); // fallback gray
+        }
+    }
+
+    unsigned int getHighlightColor(unsigned int color, float factor = 1.2f)
+    {
+        unsigned char r = (color & 0xFF);
+        unsigned char g = (color >> 8) & 0xFF;
+        unsigned char b = (color >> 16) & 0xFF;
+        unsigned char a = (color >> 24) & 0xFF;
+
+        r = static_cast<unsigned char>(std::min(255.0f, r * factor));
+        g = static_cast<unsigned char>(std::min(255.0f, g * factor));
+        b = static_cast<unsigned char>(std::min(255.0f, b * factor));
+
+        return IM_COL32(r, g, b, a);
+    }
+
     TextureNode(int _id, Type _type)
-        : id(_id), name(getNameFromType(_type)), type(_type)
+        : id(_id), name(getNameFromType(_type)), color(getColorFromType(_type)), highlightColor(getHighlightColor(getColorFromType(_type))), type(_type)
     {
         // Default input pins if not explicitly passed
         if (type == Type::Mix)
@@ -155,8 +194,10 @@ struct TextureNode
         if (type == Type::Output)
         {
             if (!inputs.empty())
-                return inputs[0]->evaluate();
-            texture.zero();
+                texture = inputs[0]->evaluate();
+            else
+                texture.zero();
+            texture.end();
             return texture;
         }
 
