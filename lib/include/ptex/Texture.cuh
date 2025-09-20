@@ -19,7 +19,7 @@ namespace PTex
     class PTEX_API Texture
     {
     public:
-        Texture(int width = 256, int height = 256);
+        Texture(int width = 512, int height = 512);
         ~Texture();
         Texture(const Texture &);
         Texture &operator=(const Texture &other);

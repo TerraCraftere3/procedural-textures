@@ -56,16 +56,16 @@ endif()
 # Demo Executable
 # --------------------------
 
-file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/demo/src/*.cpp"
-    "${CMAKE_SOURCE_DIR}/demo/src/*.cu"
+file(GLOB_RECURSE EDITOR_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/editor/src/*.cpp"
+    "${CMAKE_SOURCE_DIR}/editor/src/*.cu"
 )
 
-add_executable(ptexDemo ${DEMO_SOURCES})
+add_executable(ptexEditor ${EDITOR_SOURCES})
 
-target_include_directories(ptexDemo
+target_include_directories(ptexEditor
     PRIVATE
-    ${CMAKE_SOURCE_DIR}/demo/src
+    ${CMAKE_SOURCE_DIR}/editor/src
 )
 
-target_link_libraries(ptexDemo PRIVATE ptexLib externals)
+target_link_libraries(ptexEditor PRIVATE ptexLib externals)

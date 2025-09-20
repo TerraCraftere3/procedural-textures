@@ -34,7 +34,6 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
         ImNodes::EndNode();
     }
 
-    // Draw links
     for (auto &node : nodes)
     {
         for (int i = 0; i < node->inputs.size(); i++)
@@ -110,23 +109,29 @@ int main()
     // -------------------
     std::vector<std::shared_ptr<TextureNode>> nodes;
 
-    nodes.push_back(std::make_shared<TextureNode>(1, "Voronoi Node", TextureNode::Type::Voronoi));
-    nodes.push_back(std::make_shared<TextureNode>(0, "Gradient Node", TextureNode::Type::Gradient));
-    nodes.push_back(std::make_shared<TextureNode>(2, "Color Node", TextureNode::Type::Color));
-    nodes.push_back(std::make_shared<TextureNode>(3, "Mix Node", TextureNode::Type::Mix));
+    nodes.push_back(std::make_shared<TextureNode>(0, TextureNode::Type::Output));
+    nodes.push_back(std::make_shared<TextureNode>(1, TextureNode::Type::Voronoi));
+    nodes.push_back(std::make_shared<TextureNode>(2, TextureNode::Type::Gradient));
+    nodes.push_back(std::make_shared<TextureNode>(3, TextureNode::Type::Color));
+    nodes.push_back(std::make_shared<TextureNode>(4, TextureNode::Type::Mix));
 
-    nodes[1]->params.colorA = vec4(1.0f, 0.3f, 0.2f, 1.0f); // Gradient Node
-    nodes[1]->params.colorB = vec4(2.0f, 0.3f, 1.0f, 1.0f); //
+    nodes[2]->params.colorA = vec4(1.0f, 0.3f, 0.2f, 1.0f); // Gradient Node
+    nodes[2]->params.colorB = vec4(2.0f, 0.3f, 1.0f, 1.0f); //
 
-    nodes[2]->params.colorA = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Color Node
+    nodes[3]->params.colorA = vec4(0.0f, 0.0f, 0.0f, 1.0f); // Color Node
 
-    nodes[3]->inputs.push_back(nodes[2]);
-    nodes[3]->inputs.push_back(nodes[1]);
-    nodes[3]->inputs.push_back(nodes[0]);
+    nodes[4]->inputs.push_back(nodes[3]); //
+    nodes[4]->inputs.push_back(nodes[2]); // Mix Node
+    nodes[4]->inputs.push_back(nodes[1]); //
+
+    nodes[0]->inputs.push_back(nodes[4]); // Output Node
 
     // -------------------
     // Main loop
     // -------------------
+
+    float renderTime = 0.0f;
+    bool bakeTexture = true;
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -157,21 +162,18 @@ int main()
 
         ImGui::Begin("Texture Editor");
         {
-            bool bakeTexture = false;
-            bakeTexture |= ImGui::Button("Bake Texture");
+            ImGui::Text("Render Time: %.3f ms", renderTime);
             bakeTexture |= showTextureNodeEditor(nodes);
             if (bakeTexture)
             {
-                printf("Starting Texture Creation\n");
                 auto start = std::chrono::high_resolution_clock::now();
 
-                nodes.back()->evaluate();
+                nodes.front()->evaluate();
 
                 auto end = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> elapsed = end - start;
 
-                printf("Texture creation took %.3f ms\n", elapsed.count());
-                fflush(stdout);
+                renderTime = elapsed.count();
                 bakeTexture = false;
             }
         }
@@ -181,7 +183,7 @@ int main()
 
         ImGui::Begin("Viewport");
         {
-            PTex::Texture &finalTex = nodes.back()->texture;
+            PTex::Texture &finalTex = nodes.front()->texture;
             int texWidth = finalTex.width();
             int texHeight = finalTex.height();
 

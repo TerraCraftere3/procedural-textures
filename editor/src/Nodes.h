@@ -11,7 +11,8 @@ struct TextureNode
         Noise,
         Mix,
         Blur,
-        Color
+        Color,
+        Output
     } type;
     struct Params
     {
@@ -24,14 +25,39 @@ struct TextureNode
 
     PTex::Texture texture;
 
-    TextureNode(int _id, std::string _name, Type _type)
-        : id(_id), name(_name), type(_type)
+    std::string getNameFromType(Type type)
+    {
+        switch (type)
+        {
+        case Type::Blur:
+            return "Blur";
+        case Type::Gradient:
+            return "Gradient Texture";
+        case Type::Voronoi:
+            return "Voronoi Noise";
+        case Type::Noise:
+            return "Noise";
+        case Type::Mix:
+            return "Mix";
+        case Type::Color:
+            return "Solid Color";
+        case Type::Output:
+            return "Output";
+        default:
+            return "NOT IMPLEMENTED IN getNameFromType IN NODES.H";
+        }
+    }
+
+    TextureNode(int _id, Type _type)
+        : id(_id), name(getNameFromType(_type)), type(_type)
     {
         // Default input pins if not explicitly passed
         if (type == Type::Mix)
             inputNames = {"Color A", "Color B", "Value"};
         if (type == Type::Blur)
             inputNames = {"Color"};
+        if (type == Type::Output)
+            inputNames = {"Output"};
     }
 
     int getInputPinID(int index) { return id * 100 + index; }
@@ -102,9 +128,18 @@ struct TextureNode
         }
 
         // Output Pin
-        ImNodes::BeginOutputAttribute(getOutputPinID(0));
-        ImGui::Text("Output");
-        ImNodes::EndOutputAttribute();
+        if (type == Type::Output)
+        {
+            /*ImNodes::BeginOutputAttribute(getOutputPinID(0));
+            ImGui::TextDisabled("End");
+            ImNodes::EndOutputAttribute();*/
+        }
+        else
+        {
+            ImNodes::BeginOutputAttribute(getOutputPinID(0));
+            ImGui::Text("Output");
+            ImNodes::EndOutputAttribute();
+        }
 
         return changed;
     }
@@ -115,6 +150,14 @@ struct TextureNode
         for (auto &in : inputs)
         {
             inputTextures.push_back(&in->evaluate());
+        }
+
+        if (type == Type::Output)
+        {
+            if (!inputs.empty())
+                return inputs[0]->evaluate();
+            texture.zero();
+            return texture;
         }
 
         texture.zero();
