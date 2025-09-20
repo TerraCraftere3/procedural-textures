@@ -158,6 +158,13 @@ namespace PTex
 
     Texture &Texture::voronoi(float scale, float detail, float roughness, float lacunarity, float smoothness)
     {
+        if (scale <= 0.0f)
+            scale = 1.0f;
+        if (detail <= 0.0f)
+            detail = 1.0f;
+        if (smoothness <= 0.0f)
+            smoothness = 1.0f;
+
         for (int y = 0; y < m_Height; ++y)
         {
             for (int x = 0; x < m_Width; ++x)
@@ -264,6 +271,38 @@ namespace PTex
             }
         }
 
+        return *this;
+    }
+
+    Texture &Texture::mix(const Texture &value, const Texture &source)
+    {
+        for (int y = 0; y < m_Height; ++y)
+        {
+            for (int x = 0; x < m_Width; ++x)
+            {
+                float u = float(x) / float(m_Width);
+                float v = float(y) / float(m_Height);
+
+                int vx = int(u * (value.m_Width - 1));
+                int vy = int(v * (value.m_Height - 1));
+                int vIdx = (vy * value.m_Width + vx) * PTEX_TEXTURE_CHANNELS;
+                float blend = value.m_Data[vIdx];
+                blend = std::clamp(blend, 0.0f, 1.0f);
+
+                int sx = int(u * (source.m_Width - 1));
+                int sy = int(v * (source.m_Height - 1));
+                int sIdx = (sy * source.m_Width + sx) * PTEX_TEXTURE_CHANNELS;
+
+                int idx = (y * m_Width + x) * PTEX_TEXTURE_CHANNELS;
+
+                for (int c = 0; c < PTEX_TEXTURE_CHANNELS; ++c)
+                {
+                    float base = m_Data[idx + c];
+                    float src = source.m_Data[sIdx + c];
+                    m_Data[idx + c] = base * (1.0f - blend) + src * blend;
+                }
+            }
+        }
         return *this;
     }
 

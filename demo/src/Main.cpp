@@ -1,8 +1,9 @@
-#include <iostream>
 #include <ptex/PTex.h>
 
 #include <fstream>
 #include <algorithm>
+#include <chrono>
+#include <iostream>
 
 void writePPM(const std::string &filename, const PTex::Texture &texture)
 {
@@ -31,14 +32,23 @@ int main()
     using namespace PTex;
     try
     {
-        Texture tex = Texture(512, 512).voronoi();
+        auto start = std::chrono::high_resolution_clock::now();
+
+        Texture tex = Texture(512, 512)
+                          .gradient(vec4(1.0f, 0.3f, 0.2f, 1.0f), vec4(0.2f, 0.3f, 1.0f, 1.0f), 45.0f)
+                          .mix(Texture(256, 256).voronoi(), Texture(256, 256).noise());
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = end - start;
+
         writePPM("output.ppm", tex);
         printf("Wrote file \"output.ppm\"...\n");
+        printf("Texture creation took %.3f ms\n", elapsed.count());
     }
-    catch (std::runtime_error err)
+    catch (std::runtime_error &err)
     {
         printf("Error occured!\n");
-        throw err;
+        throw;
     }
     return 0;
 }
