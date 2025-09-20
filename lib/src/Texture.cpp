@@ -45,6 +45,14 @@ static float valueNoise(float x, float y)
     return lerp(lerp(v00, v10, u), lerp(v01, v11, u), v);
 }
 
+static void randomOffset(int cx, int cy, float &ox, float &oy)
+{
+    float r1 = hash(cx, cy);
+    float r2 = hash(cy, cx);
+    ox = r1; // [0,1]
+    oy = r2; // [0,1]
+}
+
 namespace PTex
 {
     Texture::Texture(int width, int height) : m_Width(width), m_Height(height), m_Data(width * height * PTEX_TEXTURE_CHANNELS, 0.0f)
@@ -142,6 +150,117 @@ namespace PTex
                 m_Data[idx + 1] = noiseVal;
                 m_Data[idx + 2] = noiseVal;
                 m_Data[idx + 3] = 1.0f; // Alpha
+            }
+        }
+
+        return *this;
+    }
+
+    Texture &Texture::voronoi(float scale, float detail, float roughness, float lacunarity, float smoothness)
+    {
+        for (int y = 0; y < m_Height; ++y)
+        {
+            for (int x = 0; x < m_Width; ++x)
+            {
+                float nx = float(x) / float(m_Width);
+                float ny = float(y) / float(m_Height);
+
+                float frequency = scale;
+                float amplitude = 1.0f;
+                float total = 0.0f;
+                float maxValue = 0.0f;
+
+                int octaves = (int)std::floor(detail);
+                float frac = detail - octaves;
+
+                for (int i = 0; i < octaves; ++i)
+                {
+                    // Scale into cell space
+                    float px = nx * frequency;
+                    float py = ny * frequency;
+
+                    int cellX = int(std::floor(px));
+                    int cellY = int(std::floor(py));
+
+                    float minDist = 1e9f;
+
+                    // Search neighboring cells
+                    for (int dy = -1; dy <= 1; ++dy)
+                    {
+                        for (int dx = -1; dx <= 1; ++dx)
+                        {
+                            int cx = cellX + dx;
+                            int cy = cellY + dy;
+
+                            float ox, oy;
+                            randomOffset(cx, cy, ox, oy);
+
+                            float fx = (float)cx + ox;
+                            float fy = (float)cy + oy;
+
+                            float dxp = fx - px;
+                            float dyp = fy - py;
+                            float dist = std::sqrt(dxp * dxp + dyp * dyp);
+
+                            if (dist < minDist)
+                                minDist = dist;
+                        }
+                    }
+
+                    // Apply smoothness shaping (controls sharpness of cell edges)
+                    float val = std::pow(std::clamp(minDist, 0.0f, 1.0f), smoothness);
+
+                    total += val * amplitude;
+                    maxValue += amplitude;
+
+                    frequency *= lacunarity;
+                    amplitude *= roughness;
+                }
+
+                // Fractional octave blend
+                if (frac > 0.0f)
+                {
+                    float px = nx * frequency;
+                    float py = ny * frequency;
+
+                    int cellX = int(std::floor(px));
+                    int cellY = int(std::floor(py));
+                    float minDist = 1e9f;
+
+                    for (int dy = -1; dy <= 1; ++dy)
+                    {
+                        for (int dx = -1; dx <= 1; ++dx)
+                        {
+                            int cx = cellX + dx;
+                            int cy = cellY + dy;
+
+                            float ox, oy;
+                            randomOffset(cx, cy, ox, oy);
+
+                            float fx = (float)cx + ox;
+                            float fy = (float)cy + oy;
+
+                            float dxp = fx - px;
+                            float dyp = fy - py;
+                            float dist = std::sqrt(dxp * dxp + dyp * dyp);
+
+                            if (dist < minDist)
+                                minDist = dist;
+                        }
+                    }
+
+                    float val = std::pow(std::clamp(minDist, 0.0f, 1.0f), smoothness);
+                    total += val * amplitude * frac;
+                    maxValue += amplitude * frac;
+                }
+
+                float noiseVal = total / maxValue;
+
+                int idx = (y * m_Width + x) * PTEX_TEXTURE_CHANNELS;
+                m_Data[idx + 0] = noiseVal;
+                m_Data[idx + 1] = noiseVal;
+                m_Data[idx + 2] = noiseVal;
+                m_Data[idx + 3] = 1.0f;
             }
         }
 

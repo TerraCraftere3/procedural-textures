@@ -31,7 +31,7 @@ int main()
     using namespace PTex;
     try
     {
-        Texture tex = Texture(512, 512).noise();
+        Texture tex = Texture(512, 512).voronoi();
         writePPM("output.ppm", tex);
         printf("Wrote file \"output.ppm\"...\n");
     }
