@@ -2,8 +2,8 @@
 
 #include <vector>
 
+#include "Vector.cuh"
 #include "Core.h"
-#include "Vector.h"
 
 #define PTEX_TEXTURE_CHANNELS 4
 
@@ -15,12 +15,17 @@ namespace PTex
     public:
         Texture(int width = 256, int height = 256);
         ~Texture();
+        Texture(const Texture &) = delete;
+        Texture &operator=(const Texture &) = delete;
 
         int width() const { return m_Width; }
         int height() const { return m_Height; }
 
-        const float *data() const { return m_Data.data(); }
-        float *data() { return m_Data.data(); }
+        // CPU data access (only valid after calling end())
+        const float *getData() const;
+
+        // GPU to CPU data transfer
+        float *end();
 
         Texture &setData(const float *data, int size);
         Texture &gradient(vec4 colA, vec4 colB, float angle = 0.0f);
@@ -28,11 +33,12 @@ namespace PTex
         Texture &voronoi(float scale = 5.0f, float detail = 1.0f, float roughness = 0.5f, float lacunarity = 2.0f, float smoothness = 1.0f);
         Texture &mix(const Texture &value, const Texture &source);
         Texture &grayscale();
+        Texture &blur(float radius = 1.0f);
 
     private:
-        int m_Width,
-            m_Height;
-        std::vector<float> m_Data;
+        int m_Width, m_Height;
+        float *m_Data; // CPU data
+        float *d_data; // GPU data pointer
     };
 
 }

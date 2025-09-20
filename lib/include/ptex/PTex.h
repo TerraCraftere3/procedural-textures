@@ -1,4 +1,5 @@
 #pragma once
 
 #include "Core.h"
-#include "Texture.h"
+#include "Vector.cuh"
+#include "Texture.cuh"

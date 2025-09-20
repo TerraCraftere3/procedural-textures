@@ -14,7 +14,7 @@ void writePPM(const std::string &filename, const PTex::Texture &texture)
     file << "P6\n"
          << texture.width() << " " << texture.height() << "\n255\n";
 
-    auto data = texture.data();
+    auto data = texture.getData();
     for (int i = 0; i < texture.width() * texture.height(); i++)
     {
         unsigned char r = static_cast<unsigned char>(std::clamp(data[i * PTEX_TEXTURE_CHANNELS + 0], 0.0f, 1.0f) * 255.0f);
@@ -30,25 +30,22 @@ void writePPM(const std::string &filename, const PTex::Texture &texture)
 int main()
 {
     using namespace PTex;
-    try
-    {
-        auto start = std::chrono::high_resolution_clock::now();
 
-        Texture tex = Texture(512, 512)
-                          .gradient(vec4(1.0f, 0.3f, 0.2f, 1.0f), vec4(0.2f, 0.3f, 1.0f, 1.0f), 45.0f)
-                          .mix(Texture(256, 256).voronoi(), Texture(256, 256).noise());
+    printf("Starting Texture Creation\n");
+    fflush(stdout);
+    auto start = std::chrono::high_resolution_clock::now();
 
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> elapsed = end - start;
+    Texture tex(512, 512);
+    tex.gradient(vec4(1.0f, 0.3f, 0.2f, 1.0f), vec4(0.2f, 0.3f, 1.0f, 1.0f), 45.0f)
+        .mix(Texture(256, 256).voronoi(), Texture(256, 256).noise())
+        .blur(25.0f)
+        .end();
 
-        writePPM("output.ppm", tex);
-        printf("Wrote file \"output.ppm\"...\n");
-        printf("Texture creation took %.3f ms\n", elapsed.count());
-    }
-    catch (std::runtime_error &err)
-    {
-        printf("Error occured!\n");
-        throw;
-    }
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = end - start;
+
+    writePPM("output.ppm", tex);
+    printf("Wrote file \"output.ppm\"...\n");
+    printf("Texture creation took %.3f ms\n", elapsed.count());
     return 0;
 }

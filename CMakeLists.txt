@@ -3,33 +3,31 @@ cmake_minimum_required(VERSION 3.20)
 # --------------------------
 # Project
 # --------------------------
-project(ptexProject LANGUAGES C CXX)
+project(ptexProject LANGUAGES C CXX CUDA)
 
+# --------------------------
+# Language standards
+# --------------------------
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# --------------------------
-# Options
-# --------------------------
-option(PTEX_BUILD_SHARED "Build ptexLib as a shared library (DLL/.so)" OFF)
-
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_ARCHITECTURES 86)
+set(CMAKE_CUDA_SEPARABLE_COMPILATION OFF)
+set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
 
 # --------------------------
 # Library
 # --------------------------
 file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/lib/src/*.cpp"
-    "${CMAKE_SOURCE_DIR}/lib/src/*.c"
+    "${CMAKE_SOURCE_DIR}/lib/src/*.cu"
 )
 
-if(PTEX_BUILD_SHARED)
-    add_library(ptexLib SHARED ${LIB_SOURCES})
-    target_compile_definitions(ptexLib PRIVATE PTEX_BUILD_DLL)
-    target_compile_definitions(ptexLib INTERFACE PTEX_USE_DLL)
-else()
-    add_library(ptexLib STATIC ${LIB_SOURCES})
-endif()
+add_library(ptexLib ${LIB_SOURCES})
 
 target_include_directories(ptexLib
     PUBLIC
@@ -41,7 +39,7 @@ target_include_directories(ptexLib
 # --------------------------
 file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/demo/src/*.cpp"
-    "${CMAKE_SOURCE_DIR}/demo/src/*.c"
+    "${CMAKE_SOURCE_DIR}/demo/src/*.cu"
 )
 
 add_executable(ptexDemo ${DEMO_SOURCES})
@@ -52,14 +50,3 @@ target_include_directories(ptexDemo
 )
 
 target_link_libraries(ptexDemo PRIVATE ptexLib)
-
-# --------------------------
-# Warnings
-# --------------------------
-if(MSVC)
-    target_compile_options(ptexLib PRIVATE /W4 /permissive-)
-    target_compile_options(ptexDemo PRIVATE /W4 /permissive-)
-else()
-    target_compile_options(ptexLib PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(ptexDemo PRIVATE -Wall -Wextra -Wpedantic)
-endif()
