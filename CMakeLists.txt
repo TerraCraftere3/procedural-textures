@@ -12,7 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # --------------------------
 # Options
 # --------------------------
-option(PTEX_BUILD_SHARED "Build ptexLib as a shared library (DLL/.so)" ON)
+option(PTEX_BUILD_SHARED "Build ptexLib as a shared library (DLL/.so)" OFF)
 
 
 # --------------------------

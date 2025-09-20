@@ -31,7 +31,7 @@ int main()
     using namespace PTex;
     try
     {
-        Texture tex = Texture(512, 512).gradient(vec4(1.0f, 0.3f, 0.2f, 1.0f), vec4(0.2f, 0.3f, 1.0f, 1.0f), 45.0f);
+        Texture tex = Texture(512, 512).noise();
         writePPM("output.ppm", tex);
         printf("Wrote file \"output.ppm\"...\n");
     }
