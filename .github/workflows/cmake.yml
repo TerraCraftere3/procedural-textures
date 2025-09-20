@@ -29,9 +29,9 @@ jobs:
 
     - name: Install CUDA (Windows)
       if: runner.os == 'Windows'
-      uses: Jimver/cuda-toolkit@v0.2.15
+      uses: Jimver/cuda-toolkit@v0.2.27
       with:
-        cuda: '13.0'
+        cuda: '13.0.0'
 
     - name: Configure CMake
       run: |
