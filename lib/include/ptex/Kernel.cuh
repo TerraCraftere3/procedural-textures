@@ -85,10 +85,20 @@ namespace PTex
 
         float rad = angle * (3.14159265f / 180.0f);
         vec2 direction(cosf(rad), sinf(rad));
+        direction = normalize(direction);
 
         vec2 pos = vec2(float(x) / float(width), float(y) / float(height));
 
-        float t = pos.x * direction.x + pos.y * direction.y;
+        float proj = dot(pos, direction);
+
+        float minProj = fminf(0.0f, fminf(dot(vec2(1, 0), direction),
+                                          fminf(dot(vec2(0, 1), direction),
+                                                dot(vec2(1, 1), direction))));
+        float maxProj = fmaxf(0.0f, fmaxf(dot(vec2(1, 0), direction),
+                                          fmaxf(dot(vec2(0, 1), direction),
+                                                dot(vec2(1, 1), direction))));
+
+        float t = (proj - minProj) / (maxProj - minProj);
         t = fmaxf(0.0f, fminf(1.0f, t));
 
         vec4 result = colA.lerp(colB, t);
