@@ -17,25 +17,35 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
 
     bool changed = false;
 
+    // --- Render Nodes ---
     for (auto &node : nodes)
     {
-        ImNodes::PushColorStyle(
-            ImNodesCol_TitleBar, node->color);
-        ImNodes::PushColorStyle(
-            ImNodesCol_TitleBarHovered, node->highlightColor);
-        ImNodes::PushColorStyle(
-            ImNodesCol_TitleBarSelected, node->highlightColor);
+        ImNodes::PushColorStyle(ImNodesCol_TitleBar, node->color);
+        ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, node->highlightColor);
+        ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, node->highlightColor);
         ImNodes::BeginNode(node->id);
 
         ImNodes::BeginNodeTitleBar();
+
+        ImGui::PushStyleColor(ImGuiCol_Button, node->color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, node->highlightColor);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, node->highlightColor);
+        if (ImGui::ArrowButton(("##compact" + std::to_string(node->id)).c_str(), node->compact ? ImGuiDir_Right : ImGuiDir_Down))
+        {
+            node->compact = !node->compact;
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::SameLine();
         ImGui::Text("%s", node->name.c_str());
+
         ImNodes::EndNodeTitleBar();
 
         changed |= node->renderAttributes();
 
-        // Display texture
-        if (node->texture.width() > 0)
-            ImGui::Image((void *)(intptr_t)node->texture.getTextureID(), ImVec2(128, 128));
+        if (!node->compact)
+            if (node->texture.width() > 0)
+                ImGui::Image((void *)(intptr_t)node->texture.getTextureID(), ImVec2(128, 128));
 
         ImNodes::EndNode();
         ImNodes::PopColorStyle();
@@ -43,17 +53,20 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
         ImNodes::PopColorStyle();
     }
 
+    // --- Render Links ---
     for (auto &node : nodes)
     {
         for (int i = 0; i < node->inputs.size(); i++)
         {
             auto inputNode = node->inputs[i];
-            ImNodes::Link(node->id * 100 + i,
-                          inputNode->getOutputPinID(0),
-                          node->getInputPinID(i));
+            if (inputNode)
+                ImNodes::Link(node->id * 100 + i,
+                              inputNode->getOutputPinID(0),
+                              node->getInputPinID(i));
         }
     }
 
+    // --- Rightclick Popup ---
     static bool spawnNode = false;
     static TextureNode::Type spawnType;
     static ImVec2 spawnPos;
@@ -68,11 +81,11 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
     {
         ImVec2 clickPos = ImGui::GetMousePos();
 
-        ImGui::SeparatorText("Spawn Node");
-        if (ImGui::MenuItem("Add Gradient Node"))
+        ImGui::SeparatorText("Generator Nodes");
+        if (ImGui::MenuItem("Add Color Node"))
         {
             spawnNode = true;
-            spawnType = TextureNode::Type::Gradient;
+            spawnType = TextureNode::Type::Color;
         }
         if (ImGui::MenuItem("Add Voronoi Node"))
         {
@@ -82,8 +95,14 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
         if (ImGui::MenuItem("Add Noise Node"))
         {
             spawnNode = true;
-            spawnType = TextureNode::Type::Voronoi;
+            spawnType = TextureNode::Type::Noise;
         }
+        if (ImGui::MenuItem("Add Gradient Node"))
+        {
+            spawnNode = true;
+            spawnType = TextureNode::Type::Gradient;
+        }
+        ImGui::SeparatorText("Modifications Nodes");
         if (ImGui::MenuItem("Add Mix Node"))
         {
             spawnNode = true;
@@ -94,10 +113,26 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
             spawnNode = true;
             spawnType = TextureNode::Type::Blur;
         }
-        if (ImGui::MenuItem("Add Color Node"))
+        ImGui::SeparatorText("Math Nodes");
+        if (ImGui::MenuItem("Add Addition Node"))
         {
             spawnNode = true;
-            spawnType = TextureNode::Type::Color;
+            spawnType = TextureNode::Type::Addition;
+        }
+        if (ImGui::MenuItem("Add Subtraction Node"))
+        {
+            spawnNode = true;
+            spawnType = TextureNode::Type::Subtraction;
+        }
+        if (ImGui::MenuItem("Add Multiplication Node"))
+        {
+            spawnNode = true;
+            spawnType = TextureNode::Type::Multiplication;
+        }
+        if (ImGui::MenuItem("Add Division Node"))
+        {
+            spawnNode = true;
+            spawnType = TextureNode::Type::Division;
         }
 
         spawnPos = clickPos;
@@ -107,7 +142,7 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
 
     ImNodes::EndNodeEditor();
 
-    // Link creation
+    // --- Link creation ---
     int start_attr, end_attr;
     if (ImNodes::IsLinkCreated(&start_attr, &end_attr))
     {
@@ -134,7 +169,7 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
         }
     }
 
-    // link destruction
+    // --- link destruction ---
     int destroyed_link_id;
     if (ImNodes::IsLinkDestroyed(&destroyed_link_id))
     {
@@ -152,6 +187,58 @@ bool showTextureNodeEditor(std::vector<std::shared_ptr<TextureNode>> &nodes)
         }
     }
 
+    // --- Deleting Nodes ---
+    const int num_selected_nodes = ImNodes::NumSelectedNodes();
+    if (num_selected_nodes > 0)
+    {
+        std::vector<int> selected_nodes_ids(num_selected_nodes);
+        ImNodes::GetSelectedNodes(selected_nodes_ids.data());
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Delete))
+        {
+            for (auto &node : nodes)
+            {
+                for (int i = 0; i < node->inputs.size(); i++)
+                {
+                    if (node->inputs[i])
+                    {
+                        for (auto id : selected_nodes_ids)
+                        {
+                            auto it = std::find_if(nodes.begin(), nodes.end(),
+                                                   [&](const std::shared_ptr<TextureNode> &n)
+                                                   {
+                                                       return n->id == id;
+                                                   });
+                            if (it != nodes.end() && (*it)->type == TextureNode::Type::Output)
+                                continue;
+
+                            if (node->inputs[i]->id == id)
+                            {
+                                node->inputs[i].reset();
+                            }
+                        }
+                    }
+                }
+            }
+
+            nodes.erase(
+                std::remove_if(nodes.begin(), nodes.end(),
+                               [&](const std::shared_ptr<TextureNode> &node)
+                               {
+                                   if (node->type == TextureNode::Type::Output)
+                                       return false;
+
+                                   return std::find(selected_nodes_ids.begin(),
+                                                    selected_nodes_ids.end(),
+                                                    node->id) != selected_nodes_ids.end();
+                               }),
+                nodes.end());
+
+            changed = true;
+        }
+    }
+
+    // --- Create new Node ---
     if (spawnNode)
     {
         int newId = (int)nodes.size() + 1;

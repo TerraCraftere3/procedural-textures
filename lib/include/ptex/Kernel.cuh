@@ -279,7 +279,7 @@ namespace PTex
         a_data[aIdx + 0] = result.x;
         a_data[aIdx + 1] = result.y;
         a_data[aIdx + 2] = result.z;
-        a_data[aIdx + 3] = result.w;
+        a_data[aIdx + 3] = 1.0f;
     }
 
     __global__ void mixKernel(float *data, const float *value_data, const float *source_data,

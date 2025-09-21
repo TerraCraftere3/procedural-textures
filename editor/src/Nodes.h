@@ -6,6 +6,7 @@ struct TextureNode
     std::vector<std::string> inputNames;
     unsigned int color;
     unsigned int highlightColor;
+    bool compact = false;
     enum class Type
     {
         Gradient,
@@ -14,6 +15,10 @@ struct TextureNode
         Mix,
         Blur,
         Color,
+        Addition,
+        Subtraction,
+        Multiplication,
+        Division,
         Output
     } type;
     struct Params
@@ -41,6 +46,14 @@ struct TextureNode
             return "Noise";
         case Type::Mix:
             return "Mix";
+        case Type::Addition:
+            return "Math (Addition)";
+        case Type::Subtraction:
+            return "Math (Subtraction)";
+        case Type::Multiplication:
+            return "Math (Multiplication)";
+        case Type::Division:
+            return "Math (Division)";
         case Type::Color:
             return "Solid Color";
         case Type::Output:
@@ -90,13 +103,27 @@ struct TextureNode
     TextureNode(int _id, Type _type)
         : id(_id), name(getNameFromType(_type)), color(getColorFromType(_type)), highlightColor(getHighlightColor(getColorFromType(_type))), type(_type)
     {
-        // Default input pins if not explicitly passed
-        if (type == Type::Mix)
+        switch (type)
+        {
+        case Type::Mix:
             inputNames = {"Color A", "Color B", "Value"};
-        if (type == Type::Blur)
+            break;
+        case Type::Addition:
+        case Type::Subtraction:
+        case Type::Multiplication:
+        case Type::Division:
+            inputNames = {"Color A", "Color B"};
+            break;
+        case Type::Blur:
             inputNames = {"Color"};
-        if (type == Type::Output)
+            break;
+        case Type::Output:
             inputNames = {"Output"};
+            break;
+        case Type::Color:
+            compact = true;
+            break;
+        }
     }
 
     int getInputPinID(int index) { return id * 100 + index; }
@@ -121,14 +148,14 @@ struct TextureNode
         {
             ImVec4 colA(params.colorA.x, params.colorA.y, params.colorA.z, params.colorA.w);
             ImGui::PushItemWidth(140);
-            changed |= ImGui::ColorEdit4(("Color A##" + std::to_string(id)).c_str(), (float *)&colA);
+            changed |= ImGui::ColorEdit3(("Color A##" + std::to_string(id)).c_str(), (float *)&colA);
             ImGui::PopItemWidth();
             if (changed)
                 params.colorA = PTex::vec4(colA.x, colA.y, colA.z, colA.w);
 
             ImVec4 colB(params.colorB.x, params.colorB.y, params.colorB.z, params.colorB.w);
             ImGui::PushItemWidth(140);
-            changed |= ImGui::ColorEdit4(("Color B##" + std::to_string(id)).c_str(), (float *)&colB);
+            changed |= ImGui::ColorEdit3(("Color B##" + std::to_string(id)).c_str(), (float *)&colB);
             ImGui::PopItemWidth();
             if (changed)
                 params.colorB = PTex::vec4(colB.x, colB.y, colB.z, colB.w);
@@ -142,7 +169,7 @@ struct TextureNode
         {
             ImVec4 col(params.colorA.x, params.colorA.y, params.colorA.z, params.colorA.w);
             ImGui::PushItemWidth(140);
-            changed |= ImGui::ColorEdit4(("Color##" + std::to_string(id)).c_str(), (float *)&col);
+            changed |= ImGui::ColorEdit3(("Color##" + std::to_string(id)).c_str(), (float *)&col);
             ImGui::PopItemWidth();
             if (changed)
                 params.colorA = PTex::vec4(col.x, col.y, col.z, col.w);
@@ -156,13 +183,55 @@ struct TextureNode
             ImGui::PopItemWidth();
             break;
 
-        case Type::Mix:
-            break;
-
         case Type::Blur:
             ImGui::PushItemWidth(80);
             changed |= ImGui::DragFloat(("Radius##" + std::to_string(id)).c_str(), &params.radius, 0.1f, 0.0f, 100.0f);
             ImGui::PopItemWidth();
+            break;
+
+        case Type::Addition:
+        case Type::Subtraction:
+        case Type::Multiplication:
+        case Type::Division:
+        {
+            Type displayedTypes[] = {Type::Addition, Type::Subtraction, Type::Multiplication, Type::Division};
+            const char *typeNames[] = {"Addition", "Subtraction", "Multiplication", "Division"};
+
+            int currentIndex = 0;
+            for (int i = 0; i < IM_ARRAYSIZE(displayedTypes); i++)
+            {
+                if (type == displayedTypes[i])
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
+
+            int newIndex = currentIndex;
+            ImGui::PushID(id);
+            ImGui::PushItemWidth(140);
+            if (ImGui::BeginCombo("Operation", typeNames[currentIndex]))
+            {
+                for (int i = 0; i < IM_ARRAYSIZE(displayedTypes); i++)
+                {
+                    bool isSelected = (currentIndex == i);
+                    if (ImGui::Selectable(typeNames[i], isSelected))
+                        newIndex = i;
+                    if (isSelected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopItemWidth();
+            ImGui::PopID();
+
+            if (newIndex != currentIndex)
+            {
+                type = displayedTypes[newIndex];
+                name = getNameFromType(type);
+            }
+        }
+        case Type::Mix:
             break;
         }
 
@@ -170,7 +239,7 @@ struct TextureNode
         if (type == Type::Output)
         {
             /*ImNodes::BeginOutputAttribute(getOutputPinID(0));
-            ImGui::TextDisabled("End");
+            ImGui::TextDisabled("End");              // Disable Output Pin
             ImNodes::EndOutputAttribute();*/
         }
         else
@@ -188,7 +257,8 @@ struct TextureNode
         std::vector<PTex::Texture *> inputTextures;
         for (auto &in : inputs)
         {
-            inputTextures.push_back(&in->evaluate());
+            if (in)
+                inputTextures.push_back(&in->evaluate());
         }
 
         if (type == Type::Output)
@@ -220,7 +290,6 @@ struct TextureNode
         case Type::Mix:
             if (inputTextures.size() >= 3)
             {
-                // Mix into the first input’s texture
                 inputTextures[0]->mix(*inputTextures[2], *inputTextures[1]);
                 texture = *inputTextures[0];
             }
@@ -243,6 +312,50 @@ struct TextureNode
             break;
         case Type::Color:
             texture.fill(params.colorA);
+            break;
+        case Type::Addition:
+            if (inputTextures.size() >= 2)
+            {
+                texture = *inputTextures[0];
+                texture.add(*inputTextures[1]);
+            }
+            else if (inputTextures.size() == 1)
+            {
+                texture = *inputTextures[0];
+            }
+            break;
+        case Type::Subtraction:
+            if (inputTextures.size() >= 2)
+            {
+                texture = *inputTextures[0];
+                texture.sub(*inputTextures[1]);
+            }
+            else if (inputTextures.size() == 1)
+            {
+                texture = *inputTextures[0];
+            }
+            break;
+        case Type::Multiplication:
+            if (inputTextures.size() >= 2)
+            {
+                texture = *inputTextures[0];
+                texture.multi(*inputTextures[1]);
+            }
+            else if (inputTextures.size() == 1)
+            {
+                texture = *inputTextures[0];
+            }
+            break;
+        case Type::Division:
+            if (inputTextures.size() >= 2)
+            {
+                texture = *inputTextures[0];
+                texture.divide(*inputTextures[1]);
+            }
+            else if (inputTextures.size() == 1)
+            {
+                texture = *inputTextures[0];
+            }
             break;
         }
 
